@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ladd.io - Real Multiplayer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            overflow: hidden;
+        }
+
+        @keyframes snowflakeGlide {
+            0% { transform: translateY(-10px) translateX(0) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            25% { transform: translateY(25vh) translateX(30px) rotate(90deg); }
+            50% { transform: translateY(50vh) translateX(-20px) rotate(180deg); }
+            75% { transform: translateY(75vh) translateX(40px) rotate(270deg); }
+            100% { transform: translateY(100vh) translateX(-10px) rotate(360deg); opacity: 0.8; }
+        }
+
+        .snowflake {
+            position: fixed;
+            top: -20px;
+            color: white;
+            font-size: 20px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0;
+            animation: snowflakeGlide linear forwards;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: radial-gradient(circle at 50% 50%, #2a5298 0%, #1e3c72 100%);
+            cursor: none;
+        }
+
+        #menuScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #menuScreen.hidden { display: none; }
+
+        #gameTitle {
+            font-size: 72px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(138, 180, 248, 0.8);
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #8ab4f8, #4a9eff, #8ab4f8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(138, 180, 248, 0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(138, 180, 248, 0.8)); }
+        }
+
+        #subtitle {
+            font-size: 20px;
+            color: #4ade80;
+            margin-bottom: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .menuButton {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(to bottom, #4a9eff, #2a5298);
+            border: 3px solid #6ab4ff;
+            border-radius: 12px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .menuButton:hover:not(:disabled) {
+            background: linear-gradient(to bottom, #6ab4ff, #4a9eff);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.7);
+        }
+
+        .menuButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #nameInput {
+            padding: 15px 20px;
+            font-size: 18px;
+            border: 3px solid #4a9eff;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.8);
+            color: #fff;
+            margin-bottom: 20px;
+            width: 300px;
+            text-align: center;
+        }
+
+        #nameInput::placeholder { color: #888; }
+
+        #connectionStatus {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .connected { background: rgba(34, 197, 94, 0.3); color: #4ade80; border: 2px solid #4ade80; }
+        .disconnected { background: rgba(239, 68, 68, 0.3); color: #ff4444; border: 2px solid #ff4444; }
+        .connecting { background: rgba(251, 191, 36, 0.3); color: #fbbf24; border: 2px solid #fbbf24; }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            z-index: 100;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid rgba(138, 180, 248, 0.3);
+        }
+
+        #hud div { margin: 5px 0; }
+
+        #leaderboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #4a9eff;
+            color: #fff;
+            min-width: 220px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        #leaderboard::-webkit-scrollbar { width: 8px; }
+        #leaderboard::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        #leaderboard::-webkit-scrollbar-thumb { background: #4a9eff; border-radius: 4px; }
+
+        .leaderboardTitle {
+            font-size: 18px;
+            font-weight: bold;
+            color: #8ab4f8;
+            margin-bottom: 10px;
+            text-align: center;
+            border-bottom: 2px solid #4a9eff;
+            padding-bottom: 5px;
+        }
+
+        .leaderboardEntry {
+            margin: 5px 0;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .leaderboardEntry.you {
+            background: rgba(74, 158, 255, 0.3);
+            border: 1px solid #4a9eff;
+            font-weight: bold;
+        }
+
+        .leaderboardEntry .rank {
+            color: #fbbf24;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        #deathScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #deathScreen.show { display: flex; }
+
+        #deathTitle {
+            font-size: 64px;
+            font-weight: bold;
+            color: #ff4444;
+            text-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+            margin-bottom: 20px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        #finalScore {
+            font-size: 32px;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        #killInfo {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        #playerCount {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #4ade80;
+            color: #4ade80;
+            font-weight: bold;
+            font-size: 18px;
+            z-index: 100;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            color: #888;
+            font-size: 14px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .instructions p {
+            margin: 5px 0;
+        }
+
+        #boostMeter {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #4a9eff;
+            border-radius: 15px;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        #boostFill {
+            height: 100%;
+            background: linear-gradient(to right, #ff4444, #ffaa44);
+            transition: width 0.1s;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
+        }
+
+        #boostText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Christmas Music -->
+    <audio id="christmasMusic" loop>
+        <source src="https://github.com/westval/cookie-clicker-assets/raw/main/Christmas%20Playlist%20_.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Load Socket.io from CDN -->
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+    <script>
+        // Spawn snowflakes
+        function createSnowflake() {
+            const snowflake = document.createElement('div');
+            snowflake.className = 'snowflake';
+            snowflake.textContent = '❄️';
+            snowflake.style.left = Math.random() * window.innerWidth + 'px';
+            snowflake.style.fontSize = (Math.random() * 15 + 15) + 'px';
+            snowflake.style.animationDuration = (Math.random() * 5 + 8) + 's';
+            document.body.appendChild(snowflake);
+            setTimeout(() => snowflake.remove(), 13000);
+        }
+        setInterval(createSnowflake, 300);
+        for (let i = 0; i < 20; i++) setTimeout(createSnowflake, i * 150);
+    </script>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Menu Screen -->
+    <div id="menuScreen">
+        <div id="gameTitle">LADD.IO</div>
+        <div id="subtitle">🌐 REAL MULTIPLAYER</div>
+        
+        <input type="text" id="nameInput" placeholder="Enter your name..." maxlength="15" value="">
+        
+        <div id="connectionStatus" class="connecting">⏳ Connecting to server...</div>
+        
+        <button class="menuButton" id="playButton" disabled>PLAY NOW</button>
+        
+        <div class="instructions">
+            <p>🖱️ Move your mouse to control direction</p>
+            <p>🚀 Click or hold Space to boost</p>
+            <p>🍎 Eat food to grow longer</p>
+            <p>💀 Make others hit your body to kill them</p>
+            <p>👑 Survive and dominate the leaderboard!</p>
+        </div>
+    </div>
+
+    <!-- Death Screen -->
+    <div id="deathScreen">
+        <div id="deathTitle">YOU DIED!</div>
+        <div id="finalScore">Final Length: <span id="finalLength">0</span></div>
+        <div id="killInfo"></div>
+        <button class="menuButton" id="playAgainButton">RESPAWN (Space)</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div>Length: <span id="lengthDisplay" style="color: #4ade80;">10</span></div>
+        <div>Score: <span id="scoreDisplay" style="color: #8ab4f8;">0</span></div>
+        <div>Kills: <span id="killsDisplay" style="color: #ff4444;">0</span></div>
+    </div>
+
+    <!-- Player Count -->
+    <div id="playerCount">👥 Players Online: <span id="playerCountNum">0</span></div>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard">
+        <div class="leaderboardTitle">🏆 LEADERBOARD</div>
+        <div id="leaderboardList">
+            <div style="color: #888; text-align: center; padding: 20px;">Waiting for players...</div>
+        </div>
+    </div>
+
+    <!-- Boost Meter -->
+    <div id="boostMeter">
+        <div id="boostFill" style="width: 100%;"></div>
+        <div id="boostText">BOOST READY</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // IMPORTANT: Change this to your server URL when deployed!
+        // For local testing: 'http://localhost:3000'
+        // For production: 'https://your-server-url.com'
+        const SERVER_URL = window.location.origin; // Automatically uses current domain
+        
+        console.log('🌐 Connecting to:', SERVER_URL);
+        const socket = io(SERVER_URL, {
+            transports: ['websocket', 'polling']
+        });
+
+        const SEGMENT_SIZE = 12;
+        const BASE_SPEED = 3;
+        const BOOST_SPEED = 6;
+        const BOOST_COST = 0.03;
+
+        let playerId = null;
+        let playerName = '';
+        let players = {};
+        let food = [];
+        let camera = { x: 2000, y: 2000 };
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let boosting = false;
+        let gameRunning = false;
+        let worldSize = { width: 4000, height: 4000 };
+
+        const laddImage = new Image();
+        laddImage.src = 'https://github.com/westval/cookie-clicker-assets/blob/main/image-removebg-preview.png?raw=true';
+
+        // Connection events
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            document.getElementById('connectionStatus').className = 'connected';
+            document.getElementById('connectionStatus').textContent = '✅ Connected - Ready to play!';
+            document.getElementById('playButton').disabled = false;
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Disconnected:', reason);
+            document.getElementById('connectionStatus').className = 'disconnected';
+            document.getElementById('connectionStatus').textContent = '❌ Disconnected - Reconnecting...';
+            document.getElementById('playButton').disabled = true;
+            gameRunning = false;
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('❌ Connection error:', error);
+            document.getElementById('connectionStatus').className = 'disconnected';
+            document.getElementById('connectionStatus').textContent = '❌ Cannot connect to server';
+        });
+
+        // Game events
+        socket.on('init', (data) => {
+            console.log('🎮 Game initialized', data);
+            playerId = data.playerId;
+            players = data.players;
+            food = data.food;
+            worldSize = data.worldSize;
+            gameRunning = true;
+            
+            // Start music
+            document.getElementById('christmasMusic').play().catch(e => console.log('Music autoplay blocked'));
+        });
+
+        socket.on('playerJoined', (player) => {
+            players[player.id] = player;
+            console.log('👤 Player joined:', player.name);
+        });
+
+        socket.on('playerLeft', (id) => {
+            const name = players[id]?.name || 'Unknown';
+            delete players[id];
+            console.log('👋 Player left:', name);
+        });
+
+        socket.on('gameState', (data) => {
+            // Update other players
+            for (const id in data.players) {
+                if (id !== playerId) {
+                    players[id] = data.players[id];
+                }
+            }
+            
+            // Update leaderboard
+            updateLeaderboard(data.leaderboard);
+            
+            // Update player count
+            document.getElementById('playerCountNum').textContent = Object.keys(players).length;
+        });
+
+        socket.on('foodEaten', (data) => {
+            food = food.filter(f => f.id !== data.foodId);
+            food.push(data.newFood);
+        });
+
+        socket.on('playerDied', (data) => {
+            if (players[data.playerId]) {
+                players[data.playerId].alive = false;
+                food.push(...data.dropFood);
+                
+                if (data.playerId === playerId) {
+                    gameOver(data.killedBy);
+                }
+            }
+        });
+
+        socket.on('playerRespawned', (player) => {
+            players[player.id] = player;
+            if (player.id === playerId) {
+                gameRunning = true;
+            }
+        });
+
+        // Game logic
+        function update() {
+            if (!gameRunning || !playerId || !players[playerId]) return;
+
+            const player = players[playerId];
+            if (!player.alive) return;
+
+            // Calculate angle to mouse
+            const worldMouseX = mouseX + camera.x - canvas.width / 2;
+            const worldMouseY = mouseY + camera.y - canvas.height / 2;
+            player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+
+            // Move player
+            const speed = boosting ? BOOST_SPEED : BASE_SPEED;
+            player.x += Math.cos(player.angle) * speed;
+            player.y += Math.sin(player.angle) * speed;
+
+            // Keep in bounds
+            player.x = Math.max(SEGMENT_SIZE, Math.min(worldSize.width - SEGMENT_SIZE, player.x));
+            player.y = Math.max(SEGMENT_SIZE, Math.min(worldSize.height - SEGMENT_SIZE, player.y));
+
+            // Update segments
+            player.segments.unshift({ x: player.x, y: player.y });
+            if (player.segments.length > 1000) player.segments.length = 1000; // Cap length
+
+            // Boost cost
+            if (boosting && player.segments.length > 10) {
+                player.segments.pop();
+            }
+
+            // Smooth segments
+            for (let i = 1; i < player.segments.length; i++) {
+                const prev = player.segments[i - 1];
+                const curr = player.segments[i];
+                const dx = prev.x - curr.x;
+                const dy = prev.y - curr.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > SEGMENT_SIZE) {
+                    const ratio = SEGMENT_SIZE / dist;
+                    curr.x = prev.x - dx * ratio;
+                    curr.y = prev.y - dy * ratio;
+                }
+            }
+
+            // Check food collision
+            for (let i = food.length - 1; i >= 0; i--) {
+                const f = food[i];
+                const dx = player.x - f.x;
+                const dy = player.y - f.y;
+                if (Math.sqrt(dx * dx + dy * dy) < SEGMENT_SIZE * 2) {
+                    player.segments.push({ x: player.x, y: player.y });
+                    socket.emit('eatFood', f.id);
+                    food.splice(i, 1);
+                }
+            }
+
+            // Check collision with other snakes
+            checkCollisions();
+
+            // Send position to server (throttled)
+            if (Math.random() < 0.5) { // Send 50% of frames to reduce bandwidth
+                socket.emit('move', {
+                    angle: player.angle,
+                    x: player.x,
+                    y: player.y,
+                    segments: player.segments
+                });
+            }
+
+            // Update camera
+            camera.x = player.x;
+            camera.y = player.y;
+
+            // Update HUD
+            document.getElementById('lengthDisplay').textContent = player.segments.length;
+            document.getElementById('scoreDisplay').textContent = player.segments.length * 10;
+            document.getElementById('killsDisplay').textContent = player.kills || 0;
+            
+            // Update boost meter
+            const boostPercent = Math.min(100, (player.segments.length / 10) * 100);
+            document.getElementById('boostFill').style.width = boostPercent + '%';
+            document.getElementById('boostText').textContent = 
+                player.segments.length >= 10 ? 'BOOST READY' : 'GROW TO BOOST';
+        }
+
+        function checkCollisions() {
+            const player = players[playerId];
+            if (!player || !player.alive) return;
+
+            const head = player.segments[0];
+
+            for (const id in players) {
+                const other = players[id];
+                if (!other.alive) continue;
+
+                const startIdx = (id === playerId) ? 10 : 0;
+
+                for (let i = startIdx; i < other.segments.length; i++) {
+                    const seg = other.segments[i];
+                    const dx = head.x - seg.x;
+                    const dy = head.y - seg.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < SEGMENT_SIZE * 1.5) {
+                        player.alive = false;
+                        socket.emit('died', { killedBy: id });
+                        return;
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            // Clear
+            ctx.fillStyle = '#1e3c72';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            drawGrid();
+
+            // Draw food
+            for (const f of food) {
+                const x = f.x - camera.x + canvas.width / 2;
+                const y = f.y - camera.y + canvas.height / 2;
+                if (x > -50 && x < canvas.width + 50 && y > -50 && y < canvas.height + 50) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = f.color;
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw snakes
+            const playerList = Object.values(players).filter(p => p.alive);
+            playerList.sort((a, b) => (a.segments?.length || 0) - (b.segments?.length || 0));
+
+            for (const p of playerList) {
+                if (!p.segments || p.segments.length === 0) continue;
+
+                // Draw body
+                for (let i = p.segments.length - 1; i >= 0; i--) {
+                    const seg = p.segments[i];
+                    const x = seg.x - camera.x + canvas.width / 2;
+                    const y = seg.y - camera.y + canvas.height / 2;
+
+                    // Skip if off screen
+                    if (x < -100 || x > canvas.width + 100 || y < -100 || y > canvas.height + 100) continue;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, SEGMENT_SIZE, 0, Math.PI * 2);
+                    ctx.fillStyle = i === 0 ? (p.headColor || p.color) : p.color;
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Draw Ladd face
+                if (laddImage.complete && p.segments[0]) {
+                    const head = p.segments[0];
+                    const x = head.x - camera.x + canvas.width / 2;
+                    const y = head.y - camera.y + canvas.height / 2;
+                    const size = SEGMENT_SIZE * 2.5;
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(p.angle);
+                    ctx.drawImage(laddImage, -size/2, -size/2, size, size);
+                    ctx.restore();
+                }
+
+                // Draw name
+                const head = p.segments[0];
+                const x = head.x - camera.x + canvas.width / 2;
+                const y = head.y - camera.y + canvas.height / 2;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(x - 60, y - 40, 120, 22);
+                
+                ctx.fillStyle = p.id === playerId ? '#4ade80' : '#fff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, x, y - 22);
+            }
+        }
+
+        function drawGrid() {
+            const gridSize = 50;
+            const startX = Math.floor((camera.x - canvas.width / 2) / gridSize) * gridSize;
+            const startY = Math.floor((camera.y - canvas.height / 2) / gridSize) * gridSize;
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            
+            for (let x = startX; x < camera.x + canvas.width / 2; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x - camera.x + canvas.width / 2, 0);
+                ctx.lineTo(x - camera.x + canvas.width / 2, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = startY; y < camera.y + canvas.height / 2; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y - camera.y + canvas.height / 2);
+                ctx.lineTo(canvas.width, y - camera.y + canvas.height / 2);
+                ctx.stroke();
+            }
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const list = document.getElementById('leaderboardList');
+            if (!leaderboard || leaderboard.length === 0) {
+                list.innerHTML = '<div style="color: #888; text-align: center; padding: 20px;">No players yet</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            leaderboard.forEach((entry, i) => {
+                const div = document.createElement('div');
+                div.className = 'leaderboardEntry' + (entry.id === playerId ? ' you' : '');
+                
+                const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                div.innerHTML = `<span class="rank">${rank}</span> ${entry.name} - ${entry.score}`;
+                
+                list.appendChild(div);
+            });
+        }
+
+        function gameOver(killedBy) {
+            gameRunning = false;
+            const player = players[playerId];
+            
+            document.getElementById('finalLength').textContent = player?.segments?.length || 0;
+            
+            if (killedBy && players[killedBy]) {
+                document.getElementById('killInfo').textContent = `💀 Killed by ${players[killedBy].name}`;
+            } else {
+                document.getElementById('killInfo').textContent = '💀 You ran into yourself!';
+            }
+            
+            document.getElementById('deathScreen').classList.add('show');
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Input handling
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            if (gameRunning && players[playerId]?.segments.length >= 10) {
+                boosting = true;
+                socket.emit('boost', { boosting: true });
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            boosting = false;
+            socket.emit('boost', { boosting: false });
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameRunning && players[playerId]?.segments.length >= 10) {
+                    boosting = true;
+                    socket.emit('boost', { boosting: true });
+                } else if (!gameRunning && document.getElementById('deathScreen').classList.contains('show')) {
+                    respawn();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                boosting = false;
+                socket.emit('boost', { boosting: false });
+            }
+        });
+
+        // Menu buttons
+        document.getElementById('playButton').addEventListener('click', () => {
+            playerName = document.getElementById('nameInput').value.trim() || 'Ladd';
+            socket.emit('join', { 
+                name: playerName, 
+                color: 'hsl(120, 70%, 50%)' 
+            });
+            document.getElementById('menuScreen').classList.add('hidden');
+        });
+
+        function respawn() {
+            socket.emit('respawn', {});
+            document.getElementById('deathScreen').classList.remove('show');
+        }
+
+        document.getElementById('playAgainButton').addEventListener('click', respawn);
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Start
+        gameLoop();
+        console.log('🎮 Game client ready');
+    </script>
+</body>
+</html>
