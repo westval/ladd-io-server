@@ -594,13 +594,16 @@
 
             const head = player.segments[0];
 
+            // Only check collision with OTHER players (not yourself!)
             for (const id in players) {
                 const other = players[id];
                 if (!other.alive) continue;
+                
+                // SKIP YOURSELF ENTIRELY - no self-collision!
+                if (id === playerId) continue;
 
-                const startIdx = (id === playerId) ? 10 : 0;
-
-                for (let i = startIdx; i < other.segments.length; i++) {
+                // Check collision with other player's body
+                for (let i = 0; i < other.segments.length; i++) {
                     const seg = other.segments[i];
                     const dx = head.x - seg.x;
                     const dy = head.y - seg.y;
@@ -742,7 +745,7 @@
             if (killedBy && players[killedBy]) {
                 document.getElementById('killInfo').textContent = `💀 Killed by ${players[killedBy].name}`;
             } else {
-                document.getElementById('killInfo').textContent = '💀 You ran into yourself!';
+                document.getElementById('killInfo').textContent = '💀 You hit someone!';
             }
             
             document.getElementById('deathScreen').classList.add('show');
